@@ -51,6 +51,36 @@ npx -y skills add . --list
 https://github.com/leinatorX/skills.git
 ```
 
+### Codex 插件市场
+
+把本 GitHub 仓库注册为 Codex 插件市场：
+
+```powershell
+codex plugin marketplace add leinatorX/skills --ref main
+```
+
+如果本机之前已经添加过 `skillshub` 市场，拉取最新市场快照：
+
+```powershell
+codex plugin marketplace upgrade skillshub
+```
+
+查看市场中的插件：
+
+```powershell
+codex plugin list
+```
+
+安装 SkillsHub 技能集合：
+
+```powershell
+codex plugin add skillshub-skills@skillshub
+```
+
+安装或升级后，建议新开一个 Codex 线程测试技能是否被加载。
+
+### skills CLI
+
 查看远端仓库可安装的技能：
 
 ```powershell

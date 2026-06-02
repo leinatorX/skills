@@ -1,0 +1,36 @@
+{
+  "name": "skillshub-skills",
+  "version": "1.0.0",
+  "description": "SkillsHub 中的应急安全、公众号、图片生成、PPT 和短视频审核技能集合。",
+  "author": {
+    "name": "leinatorX",
+    "url": "https://github.com/leinatorX"
+  },
+  "homepage": "https://github.com/leinatorX/skills",
+  "repository": "https://github.com/leinatorX/skills",
+  "keywords": [
+    "codex",
+    "skills",
+    "wechat",
+    "ppt",
+    "image-generation",
+    "video-audit"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "SkillsHub Skills",
+    "shortDescription": "应急安全、公众号、图片生成、PPT 和短视频审核技能集合。",
+    "longDescription": "把 SkillsHub 仓库中的 Codex skills 作为一个插件安装和管理，覆盖安信图片生成、企业 PPT、短视频审核、公众号写作、公众号 HTML 排版和应急凌凌漆知识图谱工作流。",
+    "developerName": "leinatorX",
+    "category": "Productivity",
+    "capabilities": [
+      "Skills"
+    ],
+    "websiteURL": "https://github.com/leinatorX/skills",
+    "defaultPrompt": [
+      "使用 SkillsHub 里的技能完成内容生产任务。",
+      "用 anxin-ppt 生成中文企业汇报风 HTML PPT。",
+      "用 emergency-wechat-writer 写一篇应急安全公众号文章。"
+    ]
+  }
+}
