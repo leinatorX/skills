@@ -1,0 +1,26 @@
+{
+  "name": "skillshub",
+  "owner": {
+    "name": "leinatorX"
+  },
+  "metadata": {
+    "description": "SkillsHub local OpenClaw and Codex skills",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "skillshub-skills",
+      "description": "应急安全、公众号、图片生成、PPT 和短视频审核技能集合。",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/anxin-image-gen",
+        "./skills/anxin-ppt",
+        "./skills/anxin-video-aduit",
+        "./skills/emergency-wechat-writer",
+        "./skills/wechat-article-html-style",
+        "./skills/yingji-linglingqi-knowledge-graph"
+      ]
+    }
+  ]
+}
