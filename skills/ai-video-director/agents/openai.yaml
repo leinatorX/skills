@@ -1,0 +1,4 @@
+interface:
+  display_name: "AI 视频导演"
+  short_description: "从一句话生成 AI 短视频剧本、定妆照、分镜、模型提示词和发布方案。"
+  default_prompt: "使用 $ai-video-director 把一个短视频创意扩展成剧本、关键资产清单、定妆照提示词、分镜表和适配主流视频模型的提示词。"

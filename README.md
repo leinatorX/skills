@@ -7,6 +7,7 @@
 - `anxin-image-gen`：通过安信 `gpt-image-2` 兼容接口生成图片。
 - `anxin-ppt`：生成企业科技风 HTML PPT，并结合 `anxin-image-gen` 生成封面、方案图、生态图和图标组等视觉资产。
 - `anxin-video-aduit`：通过安信 Gemini 多模态接口审核短视频、文稿和分镜图是否适合发布到微信视频号和抖音。
+- `ai-video-director`：从一句话创意生成 AI 短视频剧本、分镜、模型提示词、质检清单和平台发布方案。
 - `emergency-wechat-writer`：创作应急、消防、危化、安全生产等领域微信公众号文章和选题策划。
 - `wechat-article-html-style`：将公众号文章整理成统一风格的本地 HTML 排版页，便于复制到微信公众平台。
 - `yingji-linglingqi-knowledge-graph`：完成应急凌凌漆知识图谱从立项、调研、提示词、出图复核到发布文案的闭环。
