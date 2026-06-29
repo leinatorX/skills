@@ -132,7 +132,7 @@ gpt-image-2-all
 --t8-fallback-model none
 ```
 
-fal fallback 仍默认关闭，只有显式 `--fallback-provider fal` 时才会在 T8 兜底也失败后尝试 fal。
+脚本不再支持 T8 失败后回退到 fal；T8 失败时只允许同通道兜底模型处理。
 
 ## 尺寸约束
 
@@ -201,7 +201,7 @@ curl --location "{{BASE_URL}}/v1/images/tasks/3dad96708a77485e97ac7ef652796d7b" 
 
 遇到 `FAILURE` 后，应先报告 `task_id` 和失败原因，不要自动重试；只有用户明确要求重试时才重新提交生图请求。
 
-## Fal GPT-Image2 兜底通道
+## Fal GPT-Image2 手动通道
 
 fal 官方文档只作为字段参考，实际请求仍走 T8 中转，同一套 Base URL 和 API Key。
 
@@ -261,11 +261,11 @@ GET  {{BASE_URL}}/fal/fal-ai/gpt-image-2/edit/requests/{request_id}
 }
 ```
 
-脚本默认策略：
+脚本策略：
 
 - 先走 T8 OpenAI Images 兼容接口。
-- 默认不自动 fallback 到 fal GPT-Image2，避免 fal 中转任务长时间 `IN_QUEUE` 时产生额外未启动任务。
-- 只有显式传入 `--fallback-provider fal` 时，T8 提交、查询或任务状态失败后才 fallback 到 fal GPT-Image2。
+- T8 提交、查询或任务状态失败后，不再 fallback 到 fal GPT-Image2，避免 fal 中转任务长时间 `IN_QUEUE` 时产生额外未启动任务。
+- 只有手动指定 `--provider fal` 时才走 fal GPT-Image2。
 - 有 `--image` 时使用 `openai/gpt-image-2/edit`。
 - 没有 `--image` 时使用 `openai/gpt-image-2`。
 - fal 任务如果保持 `IN_QUEUE` 超过 `--fal-start-timeout`，默认 `60` 秒，脚本会返回当前状态并停止等待，避免 OpenClaw 长时间挂起。T8 fal 中转可能十几到几十分钟后才完成，稍后用 `--fal-request-id` 查询同一个任务，不要重复提交。

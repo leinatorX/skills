@@ -31,7 +31,6 @@ def default_timeout():
 def parse_args():
     parser = argparse.ArgumentParser(description="调用安信 gpt-image-2 兼容接口生成图片")
     parser.add_argument("--provider", default="t8", choices=["t8", "fal"], help="生图通道，默认 t8")
-    parser.add_argument("--fallback-provider", default="none", choices=["none", "fal"], help="t8 失败后的兜底通道，默认 none")
     parser.add_argument("--prompt", help="图片生成提示词")
     parser.add_argument("--size", default="1024x1024", help="图片尺寸，例如 1024x1024 或 auto")
     parser.add_argument("--quality", default="auto", choices=["low", "medium", "high", "auto"], help="图片质量")
@@ -586,7 +585,7 @@ def extract_fal_image_response(response_json):
     return {}
 
 
-def run_fal(args, output_dir, timestamp, fallback_from=None):
+def run_fal(args, output_dir, timestamp):
     base_url = fal_base_url(args)
     model = fal_model_for_args(args)
 
@@ -621,7 +620,6 @@ def run_fal(args, output_dir, timestamp, fallback_from=None):
             result = {
                 "provider": "fal",
                 "mode": "fal_async_submit",
-                "fallback_from": fallback_from,
                 "request_id": request_id,
                 "status_url": status_url,
                 "response_url": response_url,
@@ -653,7 +651,6 @@ def run_fal(args, output_dir, timestamp, fallback_from=None):
     result = {
         "provider": "fal",
         "mode": "fal_async",
-        "fallback_from": fallback_from,
         "request_id": request_id,
         "fal_model": model,
         "task_status": status,
@@ -750,10 +747,6 @@ def run_t8(args, output_dir, timestamp, model=None, size=None, label=""):
     return result
 
 
-def should_fallback_to_fal(result):
-    return result.get("task_status") == "FAILURE"
-
-
 def should_fallback_to_t8_model(args, result):
     return (
         args.t8_fallback_model
@@ -801,14 +794,8 @@ def main():
                 result["fallback_from"] = f"t8_error: {exc}"
                 print(json.dumps(result, ensure_ascii=False, indent=2))
                 return
-            except Exception as fallback_exc:
-                if args.fallback_provider == "fal" and not args.sync:
-                    run_fal(args, output_dir, timestamp, fallback_from=f"t8_fallback_error: {fallback_exc}")
-                    return
+            except Exception:
                 raise
-        if args.fallback_provider == "fal" and not args.task_id and not args.sync:
-            run_fal(args, output_dir, timestamp, fallback_from=f"t8_error: {exc}")
-            return
         raise
 
     if not args.task_id and not args.sync and should_fallback_to_t8_model(args, result):
@@ -822,15 +809,6 @@ def main():
         )
         fallback_result["fallback_from"] = f"t8_failure: {result.get('task_error')}"
         print(json.dumps(fallback_result, ensure_ascii=False, indent=2))
-        return
-
-    if (
-        args.fallback_provider == "fal"
-        and not args.task_id
-        and not args.sync
-        and should_fallback_to_fal(result)
-    ):
-        run_fal(args, output_dir, timestamp, fallback_from=f"t8_failure: {result.get('task_error')}")
         return
 
     print(json.dumps(result, ensure_ascii=False, indent=2))

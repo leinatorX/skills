@@ -7,7 +7,7 @@ description: Generate images for OpenClaw through the Anxin gpt-image-2 compatib
 
 ## 目标
 
-使用安信 `gpt-image-2` 兼容异步接口为 OpenClaw 生成图片。优先走随技能提供的脚本，避免在对话里暴露 API Key。默认只走 T8 OpenAI Images 兼容接口；T8 主模型 `gpt-image-2` 失败后，先回退到 `gpt-image-2-all` 并按原始比例映射到 1K 档图片。fal.ai GPT-Image2 通道仅在手动指定 `--provider fal` 或显式传入 `--fallback-provider fal` 时使用。
+使用安信 `gpt-image-2` 兼容异步接口为 OpenClaw 生成图片。优先走随技能提供的脚本，避免在对话里暴露 API Key。默认只走 T8 OpenAI Images 兼容接口；T8 主模型 `gpt-image-2` 失败后，只回退到同通道 `gpt-image-2-all` 并按原始比例映射到 1K 档图片。fal.ai GPT-Image2 通道仅在手动指定 `--provider fal` 时使用，不作为 T8 失败后的回退通道。
 
 详细接口约束见 `references/api.md`。需要优化提示词、选择平台比例、生成中文海报或封面时，读取 `references/prompting.md`。
 
@@ -78,8 +78,7 @@ python scripts/generate_image.py \
 
 ## 参数选择
 
-- `provider` 默认 `t8`。默认先走 `/v1/images/generations?async=true`；如果失败且 `fallback-provider=fal`，自动切到 fal GPT-Image2。
-- `fallback-provider` 默认 `none`。不要自动 fallback 到 fal，除非用户明确要求；如需 T8 失败后兜底 fal，显式传 `--fallback-provider fal`。
+- `provider` 默认 `t8`。默认先走 `/v1/images/generations?async=true`；T8 失败时只允许同通道模型兜底，不再回退到 fal GPT-Image2。
 - `model` 默认使用 `gpt-image-2`。
 - `t8-fallback-model` 默认使用 `gpt-image-2-all`。这是 T8 主模型失败后的同通道兜底模型，只支持 1K 图片。
 - `t8-fallback-size` 默认 `auto`。调用 `gpt-image-2-all` 时会根据原始 `size` 的比例映射到 1K 档：`1024x1024`、`1024x576`、`576x1024`、`1024x768`、`768x1024`、`1024x688`、`688x1024`。如果用户显式指定 `--t8-fallback-size`，则按指定尺寸执行。
@@ -112,8 +111,7 @@ python scripts/generate_image.py \
 - 如果环境变量缺失，先提示用户配置，不要猜测 Base URL 或 Key。
 - 如果 OpenClaw 外层任务容易超时，优先使用 `--no-wait` 拿到 `task_id`，后续再用 `--task-id` 查询。
 - 如果任务状态为 `FAILURE`，向用户报告 `task_id` 和失败原因，不要自动重新提交同一任务；只有用户明确要求重试时才重新调用生图。
-- 如果用户显式开启 fal fallback 且 fal 成功，向用户说明实际使用的是 fal GPT-Image2 兜底结果。
-- 如果 fal 返回 `IN_QUEUE` / “未启动”，向用户说明 fal 中转排队较慢，并保留 `request_id` 供稍后查询；不要自动重复提交。
+- 如果用户手动指定 `--provider fal` 且 fal 返回 `IN_QUEUE` / “未启动”，向用户说明 fal 中转排队较慢，并保留 `request_id` 供稍后查询；不要自动重复提交。
 - 如果接口返回 `{}` 或非标准结构，保留 `response.json` 并说明服务端没有返回可直接下载的图片字段。
 - 如果用户要求生成违法、侵权、隐私泄露或高风险内容，拒绝该部分请求，并给出安全替代提示词。
 - 图片生成失败时，先检查尺寸合法性、认证头、Base URL 拼接和服务端原始错误。
