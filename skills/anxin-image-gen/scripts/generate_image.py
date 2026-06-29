@@ -12,7 +12,6 @@ from pathlib import Path
 
 
 DEFAULT_TIMEOUT_SECONDS = 600
-DEFAULT_FAL_START_TIMEOUT_SECONDS = 60
 
 
 def default_timeout():
@@ -30,7 +29,6 @@ def default_timeout():
 
 def parse_args():
     parser = argparse.ArgumentParser(description="调用安信 gpt-image-2 兼容接口生成图片")
-    parser.add_argument("--provider", default="t8", choices=["t8", "fal"], help="生图通道，默认 t8")
     parser.add_argument("--prompt", help="图片生成提示词")
     parser.add_argument("--size", default="1024x1024", help="图片尺寸，例如 1024x1024 或 auto")
     parser.add_argument("--quality", default="auto", choices=["low", "medium", "high", "auto"], help="图片质量")
@@ -49,15 +47,6 @@ def parse_args():
     parser.add_argument("--task-id", help="查询已有异步任务，不重新提交")
     parser.add_argument("--webhook", help="异步任务回调地址，可选")
     parser.add_argument("--fail-on-task-failure", action="store_true", help="异步任务状态为 FAILURE 时使用非 0 退出码")
-    parser.add_argument("--fal-base-url", default=os.environ.get("ANXIN_FAL_BASE_URL"), help="Fal 中转 Base URL，默认复用 ANXIN_API_BASE_URL")
-    parser.add_argument("--fal-text-model", default="fal-ai/gpt-image-2", help="Fal 文生图模型")
-    parser.add_argument("--fal-edit-model", default="fal-ai/gpt-image-2/edit", help="Fal 图像编辑模型")
-    parser.add_argument("--fal-request-id", help="查询已有 Fal request_id，不重新提交")
-    parser.add_argument("--fal-start-timeout", type=int, default=DEFAULT_FAL_START_TIMEOUT_SECONDS, help="Fal 任务保持 IN_QUEUE 的最长等待秒数，默认 60；设为 0 表示不限制")
-    parser.add_argument("--num-images", type=int, default=1, help="Fal 生成图片数量，默认 1")
-    parser.add_argument("--output-format", default="png", choices=["jpeg", "png", "webp"], help="Fal 输出格式，默认 png")
-    parser.add_argument("--mask-image", help="Fal 编辑遮罩图 URL 或本地路径")
-    parser.add_argument("--fal-sync-mode", action="store_true", help="Fal sync_mode=true，通常返回 data URI")
     return parser.parse_args()
 
 
@@ -146,33 +135,6 @@ def build_task_url(base_url, task_id):
     if not task_id:
         raise ValueError("缺少 task_id")
     return base_url.rstrip("/") + "/v1/images/tasks/" + urllib.parse.quote(task_id)
-
-
-def normalize_fal_model(model):
-    return model.removeprefix("fal-ai/").strip("/")
-
-
-def fal_base_url(args):
-    base_url = args.fal_base_url or args.base_url
-    if not base_url:
-        raise ValueError("缺少 ANXIN_API_BASE_URL 或 --fal-base-url")
-    return base_url.rstrip("/")
-
-
-def build_fal_model_url(base_url, model):
-    base = base_url.rstrip("/")
-    model_path = normalize_fal_model(model)
-    if base.endswith("/fal-ai"):
-        return base + "/" + model_path
-    return base + "/fal-ai/" + model_path
-
-
-def build_fal_status_url(base_url, model, request_id):
-    return base_url.rstrip("/") + "/fal/" + model.strip("/") + "/requests/" + urllib.parse.quote(request_id) + "/status"
-
-
-def build_fal_result_url(base_url, model, request_id):
-    return base_url.rstrip("/") + "/fal/" + model.strip("/") + "/requests/" + urllib.parse.quote(request_id)
 
 
 def is_http_url(value):
@@ -356,32 +318,6 @@ def extract_task_id(response_json):
     return None
 
 
-def extract_fal_request_id(response_json):
-    if not isinstance(response_json, dict):
-        return None
-    for key in ("request_id", "requestId", "id"):
-        if response_json.get(key):
-            return response_json[key]
-    data = response_json.get("data")
-    if isinstance(data, dict):
-        for key in ("request_id", "requestId", "id"):
-            if data.get(key):
-                return data[key]
-    return None
-
-
-def extract_fal_response_url(response_json):
-    if not isinstance(response_json, dict):
-        return None
-    return response_json.get("response_url") or extract_task_data(response_json).get("response_url")
-
-
-def extract_fal_status_url(response_json):
-    if not isinstance(response_json, dict):
-        return None
-    return response_json.get("status_url") or extract_task_data(response_json).get("status_url")
-
-
 def extract_task_data(response_json):
     if not isinstance(response_json, dict):
         return {}
@@ -404,23 +340,6 @@ def extract_task_error(response_json):
         or task_data.get("error")
         or task_data.get("message")
         or task_data.get("failure_reason")
-    )
-
-
-def extract_fal_status(response_json):
-    data = extract_task_data(response_json)
-    return data.get("status") or response_json.get("status")
-
-
-def extract_fal_error(response_json):
-    data = extract_task_data(response_json)
-    return (
-        data.get("error")
-        or data.get("message")
-        or data.get("detail")
-        or data.get("failure_reason")
-        or response_json.get("error")
-        or response_json.get("message")
     )
 
 
@@ -466,208 +385,6 @@ def build_payload(args, model=None, size=None):
     if args.image:
         payload["image"] = normalize_image_inputs(args.image)
     return payload
-
-
-def fal_image_size(size):
-    presets = {
-        "square_hd",
-        "square",
-        "portrait_4_3",
-        "portrait_16_9",
-        "landscape_4_3",
-        "landscape_16_9",
-        "auto",
-    }
-    if size in presets:
-        return size
-    width_text, height_text = size.lower().split("x", 1)
-    return {"width": int(width_text), "height": int(height_text)}
-
-
-def build_fal_payload(args):
-    if not args.prompt:
-        raise ValueError("缺少 --prompt")
-    if args.num_images <= 0:
-        raise ValueError("--num-images 必须大于 0")
-
-    payload = {
-        "prompt": args.prompt,
-        "image_size": fal_image_size(args.size),
-        "quality": args.quality,
-        "num_images": args.num_images,
-        "output_format": args.output_format,
-    }
-    if args.fal_sync_mode:
-        payload["sync_mode"] = True
-
-    if args.image:
-        payload["image_urls"] = normalize_image_inputs(args.image)
-    if args.mask_image:
-        payload["mask_url"] = normalize_image_inputs([args.mask_image])[0]
-
-    return payload
-
-
-def fal_model_for_args(args):
-    return args.fal_edit_model if args.image else args.fal_text_model
-
-
-def query_fal_status(base_url, api_key, model, request_id, timeout, status_url=None):
-    return get_json(status_url or build_fal_status_url(base_url, model, request_id), api_key, timeout)
-
-
-def query_fal_result(base_url, api_key, model, request_id, timeout, response_url=None):
-    return get_json(response_url or build_fal_result_url(base_url, model, request_id), api_key, timeout)
-
-
-def poll_fal_request(
-    base_url,
-    api_key,
-    model,
-    request_id,
-    timeout,
-    poll_interval,
-    fail_on_task_failure=False,
-    status_url=None,
-    response_url=None,
-    start_timeout=DEFAULT_FAL_START_TIMEOUT_SECONDS,
-):
-    deadline = time.monotonic() + timeout
-    start_deadline = time.monotonic() + start_timeout if start_timeout > 0 else None
-    last_response = None
-
-    while True:
-        last_response = query_fal_status(base_url, api_key, model, request_id, timeout, status_url=status_url)
-        status = extract_fal_status(last_response)
-
-        if status in ("COMPLETED", "SUCCESS"):
-            return query_fal_result(base_url, api_key, model, request_id, timeout, response_url=response_url)
-        if status in ("FAILED", "FAILURE", "ERROR"):
-            if fail_on_task_failure:
-                fail_reason = extract_fal_error(last_response) or "Fal 异步任务失败"
-                raise RuntimeError(f"Fal 异步任务失败: {fail_reason}")
-            return last_response
-        if status in ("IN_QUEUE", "QUEUED", "PENDING") and start_deadline and time.monotonic() >= start_deadline:
-            return last_response
-
-        if time.monotonic() >= deadline:
-            raise TimeoutError(f"Fal 异步任务仍未完成: request_id={request_id} status={status}")
-
-        time.sleep(max(1, poll_interval))
-
-
-def extract_fal_image_response(response_json):
-    if not isinstance(response_json, dict):
-        return {}
-
-    candidates = []
-    data = response_json.get("data")
-    if isinstance(data, dict):
-        candidates.append(data)
-        nested = data.get("data")
-        if isinstance(nested, dict):
-            candidates.append(nested)
-    candidates.append(response_json)
-
-    for candidate in candidates:
-        images = candidate.get("images")
-        if isinstance(images, list):
-            return {"data": images}
-
-        image = candidate.get("image")
-        if isinstance(image, dict):
-            return {"data": [image]}
-
-        raw_data = candidate.get("data")
-        if isinstance(raw_data, list):
-            return {"data": raw_data}
-
-    return {}
-
-
-def run_fal(args, output_dir, timestamp):
-    base_url = fal_base_url(args)
-    model = fal_model_for_args(args)
-
-    if args.fal_request_id:
-        request_id = args.fal_request_id
-        response_json = poll_fal_request(
-            base_url,
-            args.api_key,
-            model,
-            request_id,
-            args.timeout,
-            args.poll_interval,
-            fail_on_task_failure=args.fail_on_task_failure,
-            start_timeout=args.fal_start_timeout,
-        )
-        response_path = write_json(output_dir, f"fal-{request_id}-{timestamp}.json", response_json)
-        submit_path = None
-    else:
-        submit_response = post_json(
-            build_fal_model_url(base_url, model),
-            args.api_key,
-            build_fal_payload(args),
-            args.timeout,
-        )
-        submit_path = write_json(output_dir, f"fal-submit-{timestamp}.json", submit_response)
-        request_id = extract_fal_request_id(submit_response)
-        status_url = extract_fal_status_url(submit_response)
-        response_url = extract_fal_response_url(submit_response)
-        if not request_id:
-            raise RuntimeError(f"Fal 提交未返回 request_id: {json.dumps(submit_response, ensure_ascii=False)}")
-        if args.no_wait:
-            result = {
-                "provider": "fal",
-                "mode": "fal_async_submit",
-                "request_id": request_id,
-                "status_url": status_url,
-                "response_url": response_url,
-                "fal_model": model,
-                "task_submit_path": submit_path,
-                "timeout": args.timeout,
-            }
-            print(json.dumps(result, ensure_ascii=False, indent=2))
-            return result
-
-        response_json = poll_fal_request(
-            base_url,
-            args.api_key,
-            model,
-            request_id,
-            args.timeout,
-            args.poll_interval,
-            fail_on_task_failure=args.fail_on_task_failure,
-            status_url=status_url,
-            response_url=response_url,
-            start_timeout=args.fal_start_timeout,
-        )
-        response_path = write_json(output_dir, f"fal-{request_id}-{timestamp}.json", response_json)
-
-    image_response = extract_fal_image_response(response_json)
-    image_paths, image_urls, download_errors = save_images(image_response, output_dir, args.timeout, request_id or timestamp)
-    status = extract_fal_status(response_json)
-
-    result = {
-        "provider": "fal",
-        "mode": "fal_async",
-        "request_id": request_id,
-        "fal_model": model,
-        "task_status": status,
-        "task_error": extract_fal_error(response_json),
-        "status_url": extract_fal_status_url(response_json),
-        "response_url": extract_fal_response_url(response_json),
-        "task_submit_path": submit_path,
-        "response_path": response_path,
-        "image_paths": image_paths,
-        "image_urls": image_urls,
-        "download_errors": download_errors,
-        "size": args.size,
-        "quality": args.quality,
-        "timeout": args.timeout,
-    }
-    print(json.dumps(result, ensure_ascii=False, indent=2))
-    return result
 
 
 def run_t8(args, output_dir, timestamp, model=None, size=None, label=""):
@@ -764,8 +481,8 @@ def main():
         raise ValueError("--timeout 必须大于 0")
     if args.t8_fallback_model != "none" and args.t8_fallback_size != "auto":
         validate_t8_all_size(args.t8_fallback_size)
-    if not args.task_id and not args.fal_request_id:
-        if args.provider == "t8" and args.model == "gpt-image-2-all":
+    if not args.task_id:
+        if args.model == "gpt-image-2-all":
             validate_t8_all_size(args.size)
         else:
             validate_size(args.size)
@@ -773,10 +490,6 @@ def main():
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     timestamp = time.strftime("%Y%m%d-%H%M%S")
-
-    if args.provider == "fal":
-        run_fal(args, output_dir, timestamp)
-        return
 
     try:
         result = run_t8(args, output_dir, timestamp)

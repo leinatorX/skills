@@ -7,7 +7,7 @@ description: Generate images for OpenClaw through the Anxin gpt-image-2 compatib
 
 ## 目标
 
-使用安信 `gpt-image-2` 兼容异步接口为 OpenClaw 生成图片。优先走随技能提供的脚本，避免在对话里暴露 API Key。默认只走 T8 OpenAI Images 兼容接口；T8 主模型 `gpt-image-2` 失败后，只回退到同通道 `gpt-image-2-all` 并按原始比例映射到 1K 档图片。fal.ai GPT-Image2 通道仅在手动指定 `--provider fal` 时使用，不作为 T8 失败后的回退通道。
+使用安信 `gpt-image-2` 兼容异步接口为 OpenClaw 生成图片。优先走随技能提供的脚本，避免在对话里暴露 API Key。默认只走 T8 OpenAI Images 兼容接口；T8 主模型 `gpt-image-2` 失败后，只回退到同通道 `gpt-image-2-all` 并按原始比例映射到 1K 档图片。
 
 详细接口约束见 `references/api.md`。需要优化提示词、选择平台比例、生成中文海报或封面时，读取 `references/prompting.md`。
 
@@ -32,17 +32,6 @@ python scripts/generate_image.py \
   --size 1024x1024 \
   --quality auto \
   --timeout 600 \
-  --output-dir ./outputs
-```
-
-只走 fal GPT-Image2 通道时：
-
-```bash
-python scripts/generate_image.py \
-  --provider fal \
-  --prompt "一张写实风格的未来城市夜景" \
-  --size 1024x1024 \
-  --quality high \
   --output-dir ./outputs
 ```
 
@@ -78,13 +67,10 @@ python scripts/generate_image.py \
 
 ## 参数选择
 
-- `provider` 默认 `t8`。默认先走 `/v1/images/generations?async=true`；T8 失败时只允许同通道模型兜底，不再回退到 fal GPT-Image2。
+- 默认先走 `/v1/images/generations?async=true`；T8 失败时只允许同通道模型兜底。
 - `model` 默认使用 `gpt-image-2`。
 - `t8-fallback-model` 默认使用 `gpt-image-2-all`。这是 T8 主模型失败后的同通道兜底模型，只支持 1K 图片。
 - `t8-fallback-size` 默认 `auto`。调用 `gpt-image-2-all` 时会根据原始 `size` 的比例映射到 1K 档：`1024x1024`、`1024x576`、`576x1024`、`1024x768`、`768x1024`、`1024x688`、`688x1024`。如果用户显式指定 `--t8-fallback-size`，则按指定尺寸执行。
-- fal 通道实际仍使用同一个 T8 中转 Base URL 和 API Key，不直接调用 fal 官方平台。
-- fal 文生图模型默认 `fal-ai/gpt-image-2`，fal 图像编辑模型默认 `fal-ai/gpt-image-2/edit`。这是当前 T8 fal 中转实际可提交的路径；fal 官方页面里的 `openai/gpt-image-2` 仅作为字段参考。
-- fal 中转任务可能长时间停在 `IN_QUEUE` / “未启动”，实际可能十几到几十分钟后才完成。脚本默认等待 `60` 秒后返回 `request_id`、`status_url` 和 `response_url`，不继续挂满 600 秒；稍后用 `--fal-request-id` 查询结果。可用 `--fal-start-timeout` 调整，设为 `0` 表示不限制。
 - 默认使用异步模式：`POST /v1/images/generations?async=true`，再用 `GET /v1/images/tasks/{task_id}` 查询结果。
 - `--no-wait` 只提交任务并返回 `task_id`，适合 OpenClaw 外层容易超时的场景；之后用 `--task-id` 查询结果。
 - `--task-id` 查询已有异步任务，不会重新提交生成请求。
@@ -97,7 +83,6 @@ python scripts/generate_image.py \
 - `poll-interval` 默认 `5` 秒，用于异步任务轮询。
 - `size` 默认使用 `1024x1024`。公众号封面、海报、横图等场景按用户给定比例换算到接口合法尺寸，不要直接使用不符合接口约束的平台展示尺寸。
 - `image` 支持一个或多个参考图 URL、本地路径或 `data:image/...;base64,...`。传本地路径时，脚本会自动转成 data URL base64 再提交，避免远端 API 读不到 OpenClaw 本地文件。
-- fal 通道有参考图时使用 `image_urls` 字段并走 `openai/gpt-image-2/edit`；无参考图时走 `openai/gpt-image-2` 文生图。
 
 ## 提示词语言
 
@@ -111,7 +96,6 @@ python scripts/generate_image.py \
 - 如果环境变量缺失，先提示用户配置，不要猜测 Base URL 或 Key。
 - 如果 OpenClaw 外层任务容易超时，优先使用 `--no-wait` 拿到 `task_id`，后续再用 `--task-id` 查询。
 - 如果任务状态为 `FAILURE`，向用户报告 `task_id` 和失败原因，不要自动重新提交同一任务；只有用户明确要求重试时才重新调用生图。
-- 如果用户手动指定 `--provider fal` 且 fal 返回 `IN_QUEUE` / “未启动”，向用户说明 fal 中转排队较慢，并保留 `request_id` 供稍后查询；不要自动重复提交。
 - 如果接口返回 `{}` 或非标准结构，保留 `response.json` 并说明服务端没有返回可直接下载的图片字段。
 - 如果用户要求生成违法、侵权、隐私泄露或高风险内容，拒绝该部分请求，并给出安全替代提示词。
 - 图片生成失败时，先检查尺寸合法性、认证头、Base URL 拼接和服务端原始错误。

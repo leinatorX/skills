@@ -132,7 +132,7 @@ gpt-image-2-all
 --t8-fallback-model none
 ```
 
-脚本不再支持 T8 失败后回退到 fal；T8 失败时只允许同通道兜底模型处理。
+T8 失败时只允许同通道兜底模型处理。
 
 ## 尺寸约束
 
@@ -200,72 +200,3 @@ curl --location "{{BASE_URL}}/v1/images/tasks/3dad96708a77485e97ac7ef652796d7b" 
 只有在显式传入 `--fail-on-task-failure` 时，任务状态为 `FAILURE` 才会使用非 `0` 退出码。
 
 遇到 `FAILURE` 后，应先报告 `task_id` 和失败原因，不要自动重试；只有用户明确要求重试时才重新提交生图请求。
-
-## Fal GPT-Image2 手动通道
-
-fal 官方文档只作为字段参考，实际请求仍走 T8 中转，同一套 Base URL 和 API Key。
-
-文本生成模型：
-
-```text
-POST {{BASE_URL}}/fal-ai/gpt-image-2
-GET  {{BASE_URL}}/fal/fal-ai/gpt-image-2/requests/{request_id}/status
-GET  {{BASE_URL}}/fal/fal-ai/gpt-image-2/requests/{request_id}
-```
-
-图像编辑模型：
-
-```text
-POST {{BASE_URL}}/fal-ai/gpt-image-2/edit
-GET  {{BASE_URL}}/fal/fal-ai/gpt-image-2/edit/requests/{request_id}/status
-GET  {{BASE_URL}}/fal/fal-ai/gpt-image-2/edit/requests/{request_id}
-```
-
-文生图请求体：
-
-```json
-{
-  "prompt": "一张中文科技海报",
-  "image_size": {"width": 1024, "height": 1024},
-  "quality": "high",
-  "num_images": 1,
-  "output_format": "png"
-}
-```
-
-图像编辑请求体：
-
-```json
-{
-  "prompt": "只修改画面中央的消防车，其他内容保持不变",
-  "image_urls": ["data:image/png;base64,..."],
-  "image_size": "auto",
-  "quality": "high",
-  "num_images": 1,
-  "output_format": "png"
-}
-```
-
-输出常见结构：
-
-```json
-{
-  "images": [
-    {
-      "url": "https://...",
-      "width": 1024,
-      "height": 1024,
-      "content_type": "image/png"
-    }
-  ]
-}
-```
-
-脚本策略：
-
-- 先走 T8 OpenAI Images 兼容接口。
-- T8 提交、查询或任务状态失败后，不再 fallback 到 fal GPT-Image2，避免 fal 中转任务长时间 `IN_QUEUE` 时产生额外未启动任务。
-- 只有手动指定 `--provider fal` 时才走 fal GPT-Image2。
-- 有 `--image` 时使用 `openai/gpt-image-2/edit`。
-- 没有 `--image` 时使用 `openai/gpt-image-2`。
-- fal 任务如果保持 `IN_QUEUE` 超过 `--fal-start-timeout`，默认 `60` 秒，脚本会返回当前状态并停止等待，避免 OpenClaw 长时间挂起。T8 fal 中转可能十几到几十分钟后才完成，稍后用 `--fal-request-id` 查询同一个任务，不要重复提交。
