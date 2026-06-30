@@ -9,6 +9,7 @@
 - `anxin-video-aduit`：通过安信 Gemini 多模态接口审核短视频、文稿和分镜图是否适合发布到微信视频号和抖音。
 - `ai-video-director`：从一句话创意生成 AI 短视频剧本、分镜、模型提示词、质检清单和平台发布方案。
 - `emergency-wechat-writer`：创作应急、消防、危化、安全生产等领域微信公众号文章和选题策划。
+- `tavily-search`：通过 Tavily API 提供面向 AI Agent 优化的实时网页搜索（纯 Python 跨 Windows / macOS / Linux）。
 - `wechat-article-html-style`：将公众号文章整理成统一风格的本地 HTML 排版页，便于复制到微信公众平台。
 - `yingji-linglingqi-knowledge-graph`：完成应急凌凌漆知识图谱从立项、调研、提示词、出图复核到发布文案的闭环。
 
@@ -53,6 +54,19 @@ npx -y skills add . --skill '*' -g -a codex
 ```powershell
 $env:ANXIN_API_BASE_URL = "https://your-api-host"
 $env:ANXIN_API_KEY = "your-api-key"
+```
+
+`tavily-search` 使用独立的 Tavily API Key，在 https://tavily.com/ 申请后在当前终端配置：
+
+```powershell
+$env:TAVILY_API_KEY = "your-api-key"
+```
+
+调用方式：
+
+```powershell
+python skills/tavily-search/scripts/search.py "your query"
+python skills/tavily-search/scripts/search.py "your query" --format json
 ```
 
 不要把 API Key 写入仓库文件、命令历史说明或生成产物。
